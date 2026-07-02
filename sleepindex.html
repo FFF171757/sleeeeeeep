@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>睡眠状态检测器</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "MS Sans Serif", "Microsoft Sans Serif", "Tahoma", "SimSun", sans-serif;
+      background: #008080;
+      color: #000;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .desktop {
+      min-height: 100vh;
+      padding: 22px;
+      padding-bottom: 52px;
+      position: relative;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
+        #008080;
+      background-size: 8px 8px;
+    }
+
+    .icon-area {
+      width: 100px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .desktop-icon {
+      width: 92px;
+      text-align: center;
+      color: #fff;
+      text-shadow: 1px 1px #000;
+      font-size: 12px;
+      margin-bottom: 18px;
+      padding: 4px;
+      cursor: default;
+    }
+
+    .desktop-icon:hover {
+      outline: 1px dotted #fff;
+    }
+
+    .desktop-icon .icon {
+      width: 42px;
+      height: 42px;
+      margin: 0 auto 6px;
+      background: #c0c0c0;
+      border: 2px solid #fff;
+      border-right-color: #404040;
+      border-bottom-color: #404040;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #000;
+      text-shadow: none;
+    }
+
+    .desktop-clock-card {
+      display: none;
+      position: absolute;
+      left: 50%;
+      top: 45%;
+      transform: translate(-50%, -50%);
+      width: min(520px, calc(100vw - 40px));
+      background: #c0c0c0;
+      border: 2px solid #fff;
+      border-right-color: #404040;
+      border-bottom-color: #404040;
+      box-shadow: 2px 2px 0 #000;
+      z-index: 1;
+    }
+
+    .desktop-clock-card.show {
+      display: block;
+    }
+
+    .clock-title {
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff;
+      padding: 5px 8px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    .clock-body {
+      padding: 24px;
+      text-align: center;
+      border: 2px solid #808080;
+      border-top-color: #fff;
+      border-left-color: #fff;
+    }
+
+    .big-clock {
+      font-family: "Courier New", monospace;
+      font-size: clamp(42px, 10vw, 76px);
+      font-weight: bold;
+      color: #000080;
+      margin-bottom: 12px;
+    }
+
+    .night-tip {
+      min-height: 24px;
+      font-size: 16px;
+      line-height: 1.7;
+      color: #000;
+    }
+
+    .window {
+      width: min(650px, calc(100vw - 34px));
+      background: #c0c0c0;
+      border: 2px solid #fff;
+      border-right-color: #404040;
+      border-bottom-color: #404040;
+      box-shadow: 2px 2px 0 #000;
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      transform: translate(-50%, -50%);
+      z-index: 5;
+    }
+
+    .window.hidden {
+      display: none;
+    }
+
+    .title-bar {
+      height: 26px;
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 4px 3px 8px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    .title-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .mini-icon {
+      width: 16px;
+      height: 16px;
+      background: #ffffcc;
+      color: #000;
+      border: 1px solid #fff;
+      border-right-color: #404040;
+      border-bottom-color: #404040;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 2px;
+    }
+
+    .control-btn {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      min-width: 0;
+      background: #c0c0c0;
+      border: 2px solid #fff;
+      border-right-color: #404040;
+      border-bottom-color: #404040;
+      font-size: 11px;
+      line-height: 12px;
+      text-align: center;
+      color: #000;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .control-btn:active {
+      border: 2px solid #404040;
+      border-right-color: #fff;
+      border-bottom-color: #fff;
+      padding: 0;
+    }
+
+    .content {
+      padding: 18px;
+      border: 2px solid #808080;
+      border-top-color: #fff;
+      border-left-color: #fff;
+      min-height: 330px;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .dialog-main {
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+    }
+
+    .big-icon {
+      width: 72px;
+      height: 72px;
+      background: #ffffcc;
+      border: 2px solid #fff;
+      border-right-color: #404040;
+      border-bottom-color: #404040;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 42px;
+      flex: 0 0 auto;
+    }
+
+    h1 {
+      margin: 2px 0 12px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      margin: 0 0 14px;
+    }
+
+    .panel {
+      background: #fff;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      padding: 12px;
+      margin: 14px 0 18px;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    button {
+      min-width: 112px;
+      padding: 6px 16px;
+      font-family: inherit;
+      font-size: 14px;
+      background: #c0c0c0;
+      border: 2px solid #fff;
+      border-right-color: #404040;
+      border-bottom-color: #404040;
+      color: #000;
+      cursor: pointer;
+    }
+
+    button:active {
+      border: 2px solid #404040;
+      border-right-color: #fff;
+      border-bottom-color: #fff;
+      padding: 7px 15px 5px 17px;
+    }
+
+    .status-line {
+      margin-top: 12px;
+      padding: 5px 8px;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      background: #c0c0c0;
+      font-size: 12px;
+    }
+
+    .progress-frame {
+      background: #fff;
+      height: 26px;
+      padding: 3px;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      margin: 18px 0 12px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          #000080 0,
+          #000080 12px,
+          #ffffff 12px,
+          #ffffff 14px
+        );
+      animation: loading 6s steps(24, end) forwards;
+    }
+
+    @keyframes loading {
+      from { width: 0%; }
+      to { width: 100%; }
+    }
+
+    .log-box {
+      height: 118px;
+      overflow: hidden;
+      background: #000;
+      color: #00ff00;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      padding: 10px;
+      font-family: "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      text-align: left;
+    }
+
+    .result-alert {
+      background: #fff;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      padding: 18px;
+      font-size: 18px;
+      font-weight: bold;
+      line-height: 1.7;
+      margin: 14px 0;
+    }
+
+    .late-reminder {
+      display: none;
+      background: #ffffcc;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      padding: 12px;
+      margin: 12px 0 16px;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .late-reminder.show {
+      display: block;
+    }
+
+    .txt-window {
+      display: none;
+      width: min(540px, calc(100vw - 28px));
+      background: #c0c0c0;
+      border: 2px solid #fff;
+      border-right-color: #404040;
+      border-bottom-color: #404040;
+      box-shadow: 2px 2px 0 #000;
+      position: absolute;
+      left: 54%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 8;
+    }
+
+    .txt-window.show {
+      display: block;
+    }
+
+    .txt-content {
+      padding: 14px;
+      border: 2px solid #808080;
+      border-top-color: #fff;
+      border-left-color: #fff;
+      min-height: 250px;
+    }
+
+    .vip-box {
+      display: none;
+      background: #fff;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .vip-box.show {
+      display: block;
+    }
+
+    input {
+      font-family: inherit;
+      font-size: 14px;
+      padding: 5px 6px;
+      width: 150px;
+      background: #fff;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+    }
+
+    .txt-body {
+      background: #fff;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      padding: 12px;
+      height: 220px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .taskbar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 36px;
+      background: #c0c0c0;
+      border-top: 2px solid #fff;
+      display: flex;
+      align-items: center;
+      padding: 3px 6px;
+      z-index: 20;
+    }
+
+    .start-btn {
+      min-width: 76px;
+      height: 28px;
+      padding: 3px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-weight: bold;
+    }
+
+    .task-item {
+      height: 28px;
+      margin-left: 8px;
+      min-width: 180px;
+      padding: 5px 10px;
+      background: #c0c0c0;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .task-item.active-task {
+      border: 2px solid #fff;
+      border-right-color: #404040;
+      border-bottom-color: #404040;
+    }
+
+    .clock {
+      margin-left: auto;
+      height: 28px;
+      min-width: 92px;
+      padding: 5px 8px;
+      text-align: center;
+      border: 2px solid #808080;
+      border-top-color: #404040;
+      border-left-color: #404040;
+      font-size: 12px;
+      background: #c0c0c0;
+    }
+
+    @media (max-width: 560px) {
+      .desktop {
+        padding: 12px;
+        padding-bottom: 52px;
+      }
+
+      .icon-area {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, 92px);
+        gap: 8px 4px;
+      }
+
+      .desktop-icon {
+        margin-bottom: 0;
+      }
+
+      .window {
+        top: 52%;
+        width: calc(100vw - 20px);
+      }
+
+      .content {
+        padding: 14px;
+        min-height: 345px;
+      }
+
+      .dialog-main {
+        gap: 12px;
+      }
+
+      .big-icon {
+        width: 56px;
+        height: 56px;
+        font-size: 32px;
+      }
+
+      h1 {
+        font-size: 21px;
+      }
+
+      p {
+        font-size: 14px;
+      }
+
+      .task-item {
+        min-width: 118px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="desktop">
+    <div class="icon-area">
+      <div class="desktop-icon" ondblclick="restoreMainWindow()">
+        <div class="icon">💤</div>
+        <div>睡眠检测器</div>
+      </div>
+
+      <div class="desktop-icon" ondblclick="openTxt('insomnia')">
+        <div class="icon">📄</div>
+        <div>如果失眠怎么办.txt</div>
+      </div>
+
+      <div class="desktop-icon" ondblclick="openTxt('routine')">
+        <div class="icon">📄</div>
+        <div>怎么调整作息.txt</div>
+      </div>
+
+      <div class="desktop-icon" ondblclick="openTxt('sleepTips')">
+        <div class="icon">📄</div>
+        <div>睡前注意事项.txt</div>
+      </div>
+
+      <div class="desktop-icon" ondblclick="openTxt('nap')">
+        <div class="icon">📄</div>
+        <div>午睡建议.txt</div>
+      </div>
+    </div>
+
+    <div id="desktopClockCard" class="desktop-clock-card">
+      <div class="clock-title">桌面时间</div>
+      <div class="clock-body">
+        <div id="bigClock" class="big-clock">--:--:--</div>
+        <div id="desktopTip" class="night-tip">当前桌面空闲中。</div>
+        <div class="buttons" style="justify-content:center;">
+          <button onclick="restoreMainWindow()">打开睡眠状态检测器</button>
+        </div>
+      </div>
+    </div>
+
+    <main id="mainWindow" class="window" role="application">
+      <div class="title-bar">
+        <div class="title-left">
+          <span class="mini-icon">Z</span>
+          <span>睡眠状态检测器</span>
+        </div>
+        <div class="window-controls">
+          <button class="control-btn" title="最小化" onclick="minimizeMainWindow()">_</button>
+          <button class="control-btn" title="还原" onclick="restoreMainWindow()">□</button>
+          <button class="control-btn" title="关闭" onclick="closeMainWindow()">×</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <section id="homePage" class="page active">
+          <div class="dialog-main">
+            <div class="big-icon">😴</div>
+            <div>
+              <h1>睡眠状态检测器</h1>
+              <p>
+                欢迎使用本网页。它将通过极其严谨、非常神秘、看起来很专业的娱乐分析流程，
+                检测你此刻是否正处于睡眠状态。
+              </p>
+              <div class="panel">
+                检测项目：眼皮开合状态、鼠标点击行为、当前页面交互、清醒指数读取。
+              </div>
+            </div>
+          </div>
+
+          <div class="buttons">
+            <button onclick="startDetect()">开始检测</button>
+          </div>
+
+          <div class="status-line">状态：等待用户开始检测</div>
+        </section>
+
+        <section id="loadingPage" class="page">
+          <div class="dialog-main">
+            <div class="big-icon">🔍</div>
+            <div>
+              <h1>正在检测中...</h1>
+              <p>
+                系统正在调用多重睡眠识别模块，请保持当前姿势，不要突然进入梦乡。
+              </p>
+            </div>
+          </div>
+
+          <div class="progress-frame">
+            <div class="progress-bar"></div>
+          </div>
+
+          <div id="loadingText" class="status-line">正在扫描眼皮开合状态...</div>
+
+          <div class="log-box" id="logBox">
+            C:\SLEEP-CHECK&gt; 初始化睡眠状态检测模块...<br>
+            C:\SLEEP-CHECK&gt; 正在加载交互行为分析器...<br>
+          </div>
+        </section>
+
+        <section id="resultPage" class="page">
+          <div class="dialog-main">
+            <div class="big-icon">✅</div>
+            <div>
+              <h1>检测完成</h1>
+              <p>系统已完成所有分析项目。</p>
+            </div>
+          </div>
+
+          <div class="result-alert">
+            经过多重分析，您现在没有处于睡眠状态。
+          </div>
+
+          <div class="panel">
+            依据：您刚刚成功点击了按钮、等待了加载，并且看到了这行字。
+            因此系统合理推测：你大概率醒着。
+            <br><br>
+            娱乐检测结果：清醒指数 99.9%
+          </div>
+
+          <div id="lateReminder" class="late-reminder">
+            小提醒：现在时间已经比较晚了，注意身体，别熬太久。可以放下屏幕，喝点水，早点休息。
+          </div>
+
+          <div class="buttons">
+            <button onclick="restart()">再测一次</button>
+          </div>
+
+          <div class="status-line">状态：检测完成</div>
+        </section>
+      </div>
+    </main>
+
+    <section id="txtWindow" class="txt-window">
+      <div class="title-bar">
+        <div class="title-left">
+          <span class="mini-icon">T</span>
+          <span id="txtTitle">睡眠知识.txt</span>
+        </div>
+        <div class="window-controls">
+          <button class="control-btn" title="关闭" onclick="closeTxtWindow()">×</button>
+        </div>
+      </div>
+      <div class="txt-content">
+        <div id="txtLocked">
+          <div class="dialog-main">
+            <div class="big-icon">🔒</div>
+            <div>
+              <h1>VIP 文本</h1>
+              <p>该 TXT 文件需要 VIP 邀请码才可以查看。</p>
+              <div class="vip-box show">
+                <label for="vipCode">请输入邀请码：</label>
+                <input id="vipCode" type="password" autocomplete="off" />
+                <button onclick="checkVipCode()">确认</button>
+                <div id="vipMsg" class="status-line">状态：等待输入邀请码</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="txtUnlocked" style="display:none;">
+          <div id="txtBody" class="txt-body"></div>
+          <div class="buttons">
+            <button onclick="closeTxtWindow()">关闭</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="taskbar">
+    <button class="start-btn" onclick="restoreMainWindow()">🪟 开始</button>
+    <div id="taskMain" class="task-item active-task" onclick="restoreMainWindow()">睡眠状态检测器</div>
+    <div id="taskTxt" class="task-item" style="display:none;" onclick="showTxtWindow()">TXT 文本</div>
+    <div class="clock" id="clock">--:--</div>
+  </div>
+
+  <script>
+    const loadingTexts = [
+      "正在扫描眼皮开合状态...",
+      "正在分析鼠标点击是否来自梦境...",
+      "正在检测枕头附近是否存在用户...",
+      "正在读取清醒指数，请勿眨眼太认真...",
+      "正在排除梦游操作的可能性...",
+      "正在进行最终判断：你到底睡没睡..."
+    ];
+
+    const logs = [
+      "C:\\SLEEP-CHECK> 眼皮状态扫描完成：OPEN",
+      "C:\\SLEEP-CHECK> 检测到有效点击事件：TRUE",
+      "C:\\SLEEP-CHECK> 枕头占用指数：LOW",
+      "C:\\SLEEP-CHECK> 正在读取清醒指数：99.9%",
+      "C:\\SLEEP-CHECK> 梦游操作概率：0.1%",
+      "C:\\SLEEP-CHECK> 正在生成最终报告..."
+    ];
+
+    const txtFiles = {
+      insomnia: {
+        title: "如果失眠怎么办.txt",
+        body:
+`如果失眠怎么办
+
+1. 不要强迫自己立刻睡着。
+越着急越容易清醒，可以先放松呼吸，让身体慢慢进入安静状态。
+
+2. 暂时离开床铺。
+如果躺了很久仍然睡不着，可以起身做一点安静的事情，例如看纸质书、听轻音乐，困意回来再上床。
+
+3. 减少屏幕刺激。
+睡前尽量少刷短视频、游戏和高刺激内容，强光和信息流会让大脑继续兴奋。
+
+4. 做简单放松。
+可以尝试缓慢呼吸、肌肉放松、冥想，或者想象一个安静安全的场景。
+
+5. 长期失眠要重视。
+如果失眠持续影响白天状态，可以考虑向医生或专业人士咨询。`
+      },
+      routine: {
+        title: "怎么调整作息.txt",
+        body:
+`怎么调整作息
+
+1. 固定起床时间。
+比起强行早睡，先固定起床时间更容易建立稳定节奏。
+
+2. 每次调整不要太猛。
+可以每天提前 15 到 30 分钟睡觉和起床，逐步调整。
+
+3. 白天接触自然光。
+早上晒太阳或在明亮环境中活动，有助于让身体知道“白天开始了”。
+
+4. 晚上降低刺激。
+睡前减少咖啡因、剧烈运动、强光和过度兴奋的内容。
+
+5. 保持规律。
+周末也尽量不要和工作日差太多，否则容易重新打乱节奏。`
+      },
+      sleepTips: {
+        title: "睡前注意事项.txt",
+        body:
+`睡前注意事项
+
+1. 睡前不要吃太撑。
+过饱可能影响入睡，也可能让睡眠变浅。
+
+2. 保持房间舒适。
+适当降低光线，保持安静、通风和舒适温度。
+
+3. 少看让人兴奋的内容。
+惊险剧情、激烈游戏、争论聊天都可能让大脑停不下来。
+
+4. 准备一个睡前流程。
+洗漱、整理明天要用的东西、放松几分钟，让身体形成固定信号。
+
+5. 不要把床变成工作区。
+尽量让床只和休息相关，减少在床上学习、办公或长时间玩手机。`
+      },
+      nap: {
+        title: "午睡建议.txt",
+        body:
+`午睡建议
+
+1. 午睡时间不宜太长。
+一般 10 到 30 分钟比较合适，太久可能醒来更困。
+
+2. 避免太晚午睡。
+下午太晚睡可能影响晚上的入睡时间。
+
+3. 找安静舒适的位置。
+不一定要睡得很深，闭眼休息一会儿也有帮助。
+
+4. 醒来给自己缓冲。
+午睡醒后可以喝点水、伸展一下，不要立刻做高强度任务。
+
+5. 如果晚上失眠明显。
+可以减少午睡时间，观察是否有改善。`
+      }
+    };
+
+    let textTimer = null;
+    let logTimer = null;
+    let currentTxtKey = "";
+    let vipUnlocked = false;
+
+    function isNightTime() {
+      const hour = new Date().getHours();
+      return hour >= 22 || hour < 6;
+    }
+
+    function isLateTime() {
+      const hour = new Date().getHours();
+      return hour >= 23 || hour < 6;
+    }
+
+    function showPage(pageId) {
+      document.querySelectorAll(".page").forEach(page => {
+        page.classList.remove("active");
+      });
+      document.getElementById(pageId).classList.add("active");
+    }
+
+    function showDesktopClock() {
+      const card = document.getElementById("desktopClockCard");
+      card.classList.add("show");
+      updateClock();
+    }
+
+    function hideDesktopClock() {
+      document.getElementById("desktopClockCard").classList.remove("show");
+    }
+
+    function minimizeMainWindow() {
+      document.getElementById("mainWindow").classList.add("hidden");
+      document.getElementById("taskMain").classList.remove("active-task");
+      showDesktopClock();
+    }
+
+    function closeMainWindow() {
+      document.getElementById("mainWindow").classList.add("hidden");
+      document.getElementById("taskMain").classList.remove("active-task");
+      showDesktopClock();
+    }
+
+    function restoreMainWindow() {
+      document.getElementById("mainWindow").classList.remove("hidden");
+      document.getElementById("taskMain").classList.add("active-task");
+      hideDesktopClock();
+    }
+
+    function startDetect() {
+      restoreMainWindow();
+      showPage("loadingPage");
+
+      const loadingText = document.getElementById("loadingText");
+      const logBox = document.getElementById("logBox");
+      let index = 0;
+      let logIndex = 0;
+
+      const progressBar = document.querySelector(".progress-bar");
+      progressBar.style.animation = "none";
+      progressBar.offsetHeight;
+      progressBar.style.animation = "";
+
+      logBox.innerHTML = "C:\\SLEEP-CHECK&gt; 初始化睡眠状态检测模块...<br>C:\\SLEEP-CHECK&gt; 正在加载交互行为分析器...<br>";
+
+      textTimer = setInterval(() => {
+        index++;
+        loadingText.textContent = loadingTexts[index % loadingTexts.length];
+      }, 900);
+
+      logTimer = setInterval(() => {
+        if (logIndex < logs.length) {
+          const line = document.createElement("div");
+          line.textContent = logs[logIndex];
+          logBox.appendChild(line);
+          logBox.scrollTop = logBox.scrollHeight;
+          logIndex++;
+        }
+      }, 760);
+
+      setTimeout(() => {
+        clearInterval(textTimer);
+        clearInterval(logTimer);
+        document.getElementById("lateReminder").classList.toggle("show", isLateTime());
+        showPage("resultPage");
+      }, 6200);
+    }
+
+    function restart() {
+      clearInterval(textTimer);
+      clearInterval(logTimer);
+      document.getElementById("lateReminder").classList.remove("show");
+      showPage("homePage");
+    }
+
+    function openTxt(key) {
+      currentTxtKey = key;
+      document.getElementById("txtTitle").textContent = txtFiles[key].title;
+      document.getElementById("taskTxt").style.display = "flex";
+      showTxtWindow();
+
+      if (vipUnlocked) {
+        revealTxt();
+      } else {
+        document.getElementById("txtLocked").style.display = "block";
+        document.getElementById("txtUnlocked").style.display = "none";
+        document.getElementById("vipCode").value = "";
+        document.getElementById("vipMsg").textContent = "状态：等待输入邀请码";
+        setTimeout(() => document.getElementById("vipCode").focus(), 50);
+      }
+    }
+
+    function showTxtWindow() {
+      document.getElementById("txtWindow").classList.add("show");
+    }
+
+    function closeTxtWindow() {
+      document.getElementById("txtWindow").classList.remove("show");
+      document.getElementById("taskTxt").style.display = "none";
+    }
+
+    function checkVipCode() {
+      const code = document.getElementById("vipCode").value.trim();
+      const msg = document.getElementById("vipMsg");
+
+      if (code === "666") {
+        vipUnlocked = true;
+        msg.textContent = "状态：邀请码正确，正在打开文件...";
+        setTimeout(revealTxt, 350);
+      } else {
+        msg.textContent = "状态：邀请码错误，请重新输入";
+      }
+    }
+
+    function revealTxt() {
+      if (!currentTxtKey) return;
+      document.getElementById("txtLocked").style.display = "none";
+      document.getElementById("txtUnlocked").style.display = "block";
+      document.getElementById("txtBody").textContent = txtFiles[currentTxtKey].body;
+    }
+
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, "0");
+      const m = String(now.getMinutes()).padStart(2, "0");
+      const s = String(now.getSeconds()).padStart(2, "0");
+
+      document.getElementById("clock").textContent = h + ":" + m;
+      document.getElementById("bigClock").textContent = h + ":" + m + ":" + s;
+
+      const tip = document.getElementById("desktopTip");
+      if (isNightTime()) {
+        tip.textContent = "夜深了，早点休息吧。注意身体，别让自己太累。";
+      } else {
+        tip.textContent = "当前桌面空闲中。双击左侧图标可继续使用。";
+      }
+    }
+
+    document.addEventListener("keydown", function(event) {
+      if (event.key === "Enter" && document.activeElement && document.activeElement.id === "vipCode") {
+        checkVipCode();
+      }
+    });
+
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
+</body>
+</html>
